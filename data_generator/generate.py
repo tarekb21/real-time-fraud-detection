@@ -26,7 +26,7 @@ def create_kafka_producer(max_retries=5, retry_delay=5):
             print("✅ Successfully connected to Kafka!")
             return producer
         except NoBrokersAvailable:
-            print(f"❌ Attempt {attempt + 1}/{max_retries}: Kafka broker not available")
+            print(f" Attempt {attempt + 1}/{max_retries}: Kafka broker not available")
             if attempt < max_retries - 1:
                 print(f"⏳ Retrying in {retry_delay} seconds...")
                 time.sleep(retry_delay)
@@ -40,7 +40,7 @@ producer = create_kafka_producer()
 
 def generate_transaction():
     """
-    Generate a realistic-looking financial transaction.
+    Generate financial transactions.
     
     Returns a dictionary with:
     - transaction_id: Unique identifier for the transaction
@@ -65,10 +65,10 @@ def main():
     """
     Main loop that generates and sends transactions to Kafka.
     """
-    print("🚀 Starting transaction generator...")
-    print("📊 Generating ~3% fraudulent transactions")
-    print("⏰ Sending 1 transaction per second")
-    print("🔄 Press Ctrl+C to stop\n")
+    print(" Starting transaction generator...")
+    print(" Generating ~3% fraudulent transactions")
+    print(" Sending 1 transaction per second")
+    print(" Press Ctrl+C to stop\n")
     
     transaction_count = 0
     fraud_count = 0
@@ -87,7 +87,7 @@ def main():
                 producer.send('transactions', value=transaction)
                 
                 # Display transaction info
-                status = "🚨 FRAUD" if transaction['is_fraud'] else "✅ LEGIT"
+                status = " FRAUD" if transaction['is_fraud'] else "LEGIT"
                 print(f"Transaction #{transaction_count} | {status} | "
                       f"${transaction['amount']:.2f} | {transaction['merchant']} | "
                       f"{transaction['location']}")
@@ -99,13 +99,13 @@ def main():
                           f"fraud rate: {fraud_rate:.1f}%\n")
                 
             except KafkaError as e:
-                print(f"❌ Failed to send transaction: {e}")
+                print(f" Failed to send transaction: {e}")
             
             time.sleep(1)  # 1 transaction per second
             
     except KeyboardInterrupt:
-        print(f"\n\n🛑 Stopping generator...")
-        print(f"📊 Final stats: {transaction_count} transactions, "
+        print(f"\n\n Stopping generator...")
+        print(f" Final stats: {transaction_count} transactions, "
               f"{fraud_count} fraudulent ({(fraud_count/transaction_count)*100:.1f}%)")
         producer.close()
 

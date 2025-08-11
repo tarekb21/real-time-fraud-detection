@@ -41,3 +41,23 @@ services:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+
+  spark:
+    image: bitnami/spark:3.4.0
+    container_name: spark-master
+    hostname: spark
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8080"  # Spark UI
+      - "7077:7077"  # Spark Master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    volumes:
+      - ./spark_processing:/opt/spark_apps
+      - ./storage:/opt/storage
+      - ./ml_models:/opt/ml_models
