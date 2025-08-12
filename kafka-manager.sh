@@ -5,8 +5,8 @@
 # Check if Docker is running
 check_docker() {
     if ! docker info >/dev/null 2>&1; then
-        echo "❌ Docker is not running!"
-        echo "💡 Please start Docker Desktop and try again"
+        echo "ERROR: Docker is not running!"
+        echo "Please start Docker Desktop and try again"
         exit 1
     fi
 }
@@ -17,8 +17,8 @@ if ! command -v docker compose &> /dev/null; then
     if command -v docker-compose &> /dev/null; then
         DOCKER_COMPOSE_CMD="docker-compose"
     else
-        echo " Neither 'docker compose' nor 'docker-compose' found!"
-        echo " Please install Docker with Compose support"
+        echo "ERROR: Neither 'docker compose' nor 'docker-compose' found!"
+        echo "Please install Docker with Compose support"
         exit 1
     fi
 fi
@@ -26,40 +26,40 @@ fi
 case "$1" in
     "start")
         check_docker
-        echo " Starting Kafka infrastructure..."
+        echo "Starting Kafka infrastructure..."
         $DOCKER_COMPOSE_CMD up -d
-        echo " Waiting for Kafka to be ready..."
+        echo "Waiting for Kafka to be ready..."
         sleep 15
-        echo " Kafka should be ready!"
-        echo " Kafka UI available at: http://localhost:8080"
+        echo "Kafka should be ready!"
+        echo "Kafka UI available at: http://localhost:8080"
         ;;
     "stop")
-        echo "🛑 Stopping Kafka infrastructure..."
+        echo "Stopping Kafka infrastructure..."
         $DOCKER_COMPOSE_CMD down
         ;;
     "status")
-        echo "📊 Kafka infrastructure status:"
+        echo "Kafka infrastructure status:"
         $DOCKER_COMPOSE_CMD ps
         ;;
     "logs")
-        echo "📋 Showing Kafka logs..."
+        echo "Showing Kafka logs..."
         $DOCKER_COMPOSE_CMD logs kafka
         ;;
     "create-topic")
-        echo "🏗️  Creating 'transactions' topic..."
+        echo "Creating 'transactions' topic..."
         docker exec kafka kafka-topics --create \
             --topic transactions \
             --bootstrap-server localhost:9092 \
             --partitions 3 \
             --replication-factor 1
-        echo " Topic created!"
+        echo "Topic created!"
         ;;
     "list-topics")
-        echo " Listing Kafka topics..."
+        echo "Listing Kafka topics..."
         docker exec kafka kafka-topics --list --bootstrap-server localhost:9092
         ;;
     "consume")
-        echo " Consuming messages from 'transactions' topic..."
+        echo "Consuming messages from 'transactions' topic..."
         echo "Press Ctrl+C to stop"
         docker exec -it kafka kafka-console-consumer \
             --topic transactions \
@@ -67,7 +67,7 @@ case "$1" in
             --from-beginning
         ;;
     *)
-        echo " Kafka Management Script"
+        echo "Kafka Management Script"
         echo "Usage: $0 {start|stop|status|logs|create-topic|list-topics|consume}"
         echo ""
         echo "Commands:"

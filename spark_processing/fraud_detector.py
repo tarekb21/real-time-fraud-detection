@@ -29,7 +29,7 @@ class FraudDetector:
             .getOrCreate()
         
         spark.sparkContext.setLogLevel("WARN")
-        print("✅ Spark session created successfully!")
+        print("Spark session created successfully!")
         return spark
     
     def _load_model(self):
@@ -39,10 +39,10 @@ class FraudDetector:
         if os.path.exists(model_path):
             with open(model_path, 'rb') as f:
                 model = pickle.load(f)
-            print("✅ Pre-trained model loaded successfully!")
+            print("Pre-trained model loaded successfully!")
             return model
         else:
-            print("⚠️ No pre-trained model found. Using rule-based detection.")
+            print("WARNING: No pre-trained model found. Using rule-based detection.")
             return None
     
     def read_from_kafka(self):
@@ -50,12 +50,12 @@ class FraudDetector:
         df = self.spark \
             .readStream \
             .format("kafka") \
-            .option("kafka.bootstrap.servers", "localhost:9092") \
+            .option("kafka.bootstrap.servers", "kafka:29092") \
             .option("subscribe", "transactions") \
             .option("startingOffsets", "latest") \
             .load()
         
-        print("✅ Connected to Kafka stream!")
+        print("Connected to Kafka stream!")
         return df
     
     def parse_transactions(self, df):
@@ -78,7 +78,7 @@ class FraudDetector:
             col("timestamp").alias("kafka_timestamp")
         ).select("data.*", "kafka_timestamp")
         
-        print("✅ Transaction parsing configured!")
+        print("Transaction parsing configured!")
         return parsed_df
     
     def engineer_features(self, df):
@@ -107,7 +107,7 @@ class FraudDetector:
                                 .withColumn("is_online_merchant", 
                                           when(col("merchant").contains("Online"), 1).otherwise(0))
         
-        print("✅ Feature engineering configured!")
+        print("Feature engineering configured!")
         return df_features
     
     def detect_fraud_simple(self, df):
@@ -134,7 +134,7 @@ class FraudDetector:
         """ML-based fraud detection (when model is available)"""
         # This would use the actual ML model
         # For now, we'll use the rule-based approach
-        print("🧠 Using ML model for fraud detection...")
+        print("Using ML model for fraud detection...")
         return self.detect_fraud_simple(df)
     
     def detect_fraud(self, df):
@@ -171,19 +171,72 @@ class FraudDetector:
                  .outputMode("append") \
                  .format("parquet") \
                  .option("path", "../storage/fraud_predictions") \
-                 .option("checkpointLocation", "../storage/checkpoints") \
+                 .option("checkpointLocation", "../storage/checkpoints/parquet") \
                  .trigger(processingTime="30 seconds") \
                  .start()
         
         return query
     
+    def write_to_csv(self, df):
+        """Write results to CSV files for easy viewing"""
+        # Select key columns for CSV export
+        csv_df = df.select(
+            "transaction_id",
+            "user_id",
+            "amount",
+            "location", 
+            "merchant",
+            "fraud_probability",
+            "is_fraud_predicted",
+            "is_fraud",
+            "prediction_method",
+            col("kafka_timestamp").alias("processed_time")
+        )
+        
+        query = csv_df.writeStream \
+                     .outputMode("append") \
+                     .format("csv") \
+                     .option("path", "../storage/fraud_results_csv") \
+                     .option("header", "true") \
+                     .option("checkpointLocation", "../storage/checkpoints/csv") \
+                     .trigger(processingTime="20 seconds") \
+                     .start()
+        
+        return query
+    
+    def write_fraud_alerts(self, df):
+        """Write only fraudulent transactions to alerts file"""
+        # Filter only predicted fraud cases
+        fraud_only = df.filter(col("is_fraud_predicted") == 1)
+        
+        alerts_df = fraud_only.select(
+            "transaction_id",
+            "user_id",
+            "amount",
+            "location",
+            "merchant", 
+            "fraud_probability",
+            "is_fraud",
+            col("kafka_timestamp").alias("alert_time")
+        )
+        
+        query = alerts_df.writeStream \
+                        .outputMode("append") \
+                        .format("json") \
+                        .option("path", "../storage/fraud_alerts") \
+                        .option("checkpointLocation", "../storage/checkpoints/alerts") \
+                        .trigger(processingTime="5 seconds") \
+                        .start()
+        
+        return query
+    
     def run_fraud_detection(self):
         """Main method to run the fraud detection pipeline"""
-        print("🚀 Starting Real-Time Fraud Detection System...")
-        print("📊 Reading from Kafka topic: transactions")
-        print("🧠 Applying fraud detection algorithms")
-        print("💾 Storing results and displaying alerts")
-        print("🔄 Press Ctrl+C to stop\n")
+        print("Starting Real-Time Fraud Detection System...")
+        print("Reading from Kafka topic: transactions")
+        print("Applying fraud detection algorithms")
+        print("Storing results and displaying alerts")
+        print("Press Ctrl+C to stop\n")
         
         try:
             # Read from Kafka
@@ -204,15 +257,28 @@ class FraudDetector:
             # Write to files (for storage)
             file_query = self.write_to_file(scored_df)
             
+            # Write to CSV (for easy viewing)
+            csv_query = self.write_to_csv(scored_df)
+            
+            # Write fraud alerts (for immediate attention)
+            alerts_query = self.write_fraud_alerts(scored_df)
+            
+            print("Data being saved to:")
+            print("- Console output: Real-time monitoring")
+            print("- Parquet files: ../storage/fraud_predictions")
+            print("- CSV files: ../storage/fraud_results_csv")
+            print("- Fraud alerts: ../storage/fraud_alerts")
+            print("- Checkpoints: ../storage/checkpoints/")
+            
             # Wait for termination
             console_query.awaitTermination()
             
         except KeyboardInterrupt:
-            print("\n🛑 Stopping fraud detection system...")
+            print("\nStopping fraud detection system...")
             self.spark.stop()
-            print("✅ Spark session closed successfully!")
+            print("Spark session closed successfully!")
         except Exception as e:
-            print(f"❌ Error in fraud detection pipeline: {e}")
+            print(f"ERROR: Error in fraud detection pipeline: {e}")
             self.spark.stop()
 
 def main():
